@@ -74,7 +74,50 @@
   }
   .nav-links a:hover, .nav-links a:focus-visible { color: var(--gold-bright); }
   .nav-links a:focus-visible { outline: 1px solid var(--gold); outline-offset: 4px; }
-  @media (max-width: 720px) { .nav-links { display: none; } }
+
+  /* hamburger — hidden on desktop */
+  .nav-toggle {
+    display: none;
+    background: none; border: 0; cursor: pointer;
+    width: 44px; height: 44px; padding: 10px;
+    align-items: center; justify-content: center;
+  }
+  .nav-toggle span {
+    display: block; position: relative;
+    width: 24px; height: 2px; background: #fff;
+    transition: background 0.2s;
+  }
+  .nav-toggle span::before, .nav-toggle span::after {
+    content: ""; position: absolute; left: 0;
+    width: 24px; height: 2px; background: #fff;
+    transition: transform 0.25s;
+  }
+  .nav-toggle span::before { top: -7px; }
+  .nav-toggle span::after { top: 7px; }
+  .nav-toggle[aria-expanded="true"] span { background: transparent; }
+  .nav-toggle[aria-expanded="true"] span::before { transform: translateY(7px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span::after { transform: translateY(-7px) rotate(-45deg); }
+  .nav-toggle:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+
+  @media (max-width: 720px) {
+    .nav-toggle { display: flex; }
+    .nav-links {
+      position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; gap: 0;
+      background: rgba(18, 16, 13, 0.98);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--hairline-dark);
+      padding: 8px 0;
+      display: none;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links a {
+      padding: 15px 24px;
+      border-top: 1px solid var(--hairline-dark);
+      font-size: 0.85rem;
+    }
+    .nav-links a:first-child { border-top: 0; }
+  }
 
   /* ---------- hero ---------- */
   header.hero { padding: 110px 0 100px; position: relative; overflow: hidden; }
@@ -242,7 +285,10 @@
       <span class="monogram"><span class="d">D</span><span class="s">S</span></span>
       <span class="brand-name">Attorneys</span>
     </a>
-    <div class="nav-links">
+    <button class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
+      <span></span>
+    </button>
+    <div class="nav-links" id="nav-links">
       <a href="#about">About</a>
       <a href="#services">Services</a>
       <a href="#why">Why DS</a>
@@ -250,6 +296,23 @@
     </div>
   </div>
 </nav>
+<script>
+  (function () {
+    var btn = document.querySelector('.nav-toggle');
+    var links = document.getElementById('nav-links');
+    if (!btn || !links) return;
+    btn.addEventListener('click', function () {
+      var open = links.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    links.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') {
+        links.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
+</script>
 
 <header class="hero" id="top">
   <div class="wrap">
