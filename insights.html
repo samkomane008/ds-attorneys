@@ -8,20 +8,9 @@ permalink: /insights/
 <h1 style="font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 14px;">Commentary &amp; guidance</h1>
 <p style="max-width: 60ch; margin-bottom: 48px;">Practical notes on commercial and civil law, contracts, dispute resolution and technology law, written for business owners and decision-makers.</p>
 
-{% if site.posts.size > 0 %}
-<div class="post-list">
-  {% for post in site.posts %}
-  <a class="post-card" href="{{ post.url }}">
-    <span class="post-date">{{ post.date | date: "%-d %B %Y" }}</span>
-    <h2>{{ post.title }}</h2>
-    {% if post.summary %}<p>{{ post.summary }}</p>{% endif %}
-    <span class="post-more">Read →</span>
-  </a>
-  {% endfor %}
+<div id="post-list" class="post-list">
+  <p id="posts-status" style="color: var(--text-paper-bg);">Loading articles…</p>
 </div>
-{% else %}
-<p style="color: var(--text-paper-bg);">New articles are on the way. Please check back soon.</p>
-{% endif %}
 
 <style>
   .post-list { display: grid; gap: 4px; }
@@ -33,3 +22,58 @@ permalink: /insights/
   .post-card p { color: var(--text-paper-bg); margin-bottom: 12px; max-width: 62ch; }
   .post-more { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
 </style>
+
+<script>
+  // Sanity connection. The project id is filled in once the Sanity project exists
+  // (see samloryx-os handoff: ds-attorneys-sanity-setup.md). Until then, a friendly
+  // "coming soon" message shows instead of an error.
+  var SANITY = {
+    projectId: 'REPLACE_WITH_SANITY_PROJECT_ID',
+    dataset: 'production',
+    apiVersion: 'v2023-05-03'
+  };
+
+  (function () {
+    var status = document.getElementById('posts-status');
+    var list = document.getElementById('post-list');
+
+    if (SANITY.projectId.indexOf('REPLACE_') === 0) {
+      status.textContent = 'New articles are on the way. Please check back soon.';
+      return;
+    }
+
+    var query = '*[_type=="article" && !(_id in path("drafts.**"))]|order(date desc){title,"slug":slug.current,date,summary}';
+    var url = 'https://' + SANITY.projectId + '.apicdn.sanity.io/' + SANITY.apiVersion +
+              '/data/query/' + SANITY.dataset + '?query=' + encodeURIComponent(query);
+
+    function fmtDate(d) {
+      if (!d) return '';
+      var parts = String(d).split('-');
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      if (parts.length === 3) return parseInt(parts[2], 10) + ' ' + months[parseInt(parts[1],10)-1] + ' ' + parts[0];
+      return d;
+    }
+    function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var posts = (data && data.result) || [];
+        if (!posts.length) {
+          status.textContent = 'New articles are on the way. Please check back soon.';
+          return;
+        }
+        list.innerHTML = posts.map(function (p) {
+          return '<a class="post-card" href="/insights/read/?slug=' + encodeURIComponent(p.slug) + '">' +
+                   '<span class="post-date">' + fmtDate(p.date) + '</span>' +
+                   '<h2>' + esc(p.title) + '</h2>' +
+                   (p.summary ? '<p>' + esc(p.summary) + '</p>' : '') +
+                   '<span class="post-more">Read →</span>' +
+                 '</a>';
+        }).join('');
+      })
+      .catch(function () {
+        status.textContent = 'We could not load the articles just now. Please try again shortly.';
+      });
+  })();
+</script>

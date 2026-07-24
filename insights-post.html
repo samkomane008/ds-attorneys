@@ -1,0 +1,105 @@
+---
+layout: default
+permalink: /insights/read/
+title: Insights
+---
+<article id="article">
+  <p id="article-status" style="color: var(--text-paper-bg);">Loading…</p>
+</article>
+
+<style>
+  .article-body { font-size: 1.12rem; line-height: 1.85; }
+  .article-body p { margin-bottom: 22px; }
+  .article-body h2 { font-size: 1.6rem; margin: 42px 0 14px; color: var(--heading-paper-bg); }
+  .article-body h3 { font-size: 1.28rem; margin: 34px 0 12px; color: var(--heading-paper-bg); }
+  .article-body ul, .article-body ol { margin: 0 0 22px 24px; }
+  .article-body li { margin-bottom: 8px; }
+  .article-body blockquote { border-left: 3px solid var(--gold); padding-left: 20px; margin: 26px 0; font-style: italic; color: var(--heading-paper-bg); }
+  .article-body a { color: var(--gold); }
+</style>
+
+<script>
+  var SANITY = {
+    projectId: 'REPLACE_WITH_SANITY_PROJECT_ID',
+    dataset: 'production',
+    apiVersion: 'v2023-05-03'
+  };
+
+  (function () {
+    var el = document.getElementById('article');
+    var status = document.getElementById('article-status');
+
+    function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function fmtDate(d) {
+      if (!d) return '';
+      var parts = String(d).split('-');
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      if (parts.length === 3) return parseInt(parts[2], 10) + ' ' + months[parseInt(parts[1],10)-1] + ' ' + parts[0];
+      return d;
+    }
+
+    // Minimal Portable Text -> HTML renderer (paragraphs, h2/h3, blockquote,
+    // bullet/number lists, bold/italic, links). Unknown block types are skipped safely.
+    function renderBody(blocks) {
+      if (!Array.isArray(blocks)) return '';
+      var html = '', listType = null, listBuf = '';
+      function flush() { if (listType) { html += '<' + listType + '>' + listBuf + '</' + listType + '>'; listType = null; listBuf = ''; } }
+      blocks.forEach(function (b) {
+        if (!b || b._type !== 'block') return;
+        var defs = {}; (b.markDefs || []).forEach(function (d) { defs[d._key] = d; });
+        var inner = (b.children || []).map(function (c) {
+          var t = esc(c.text);
+          (c.marks || []).forEach(function (m) {
+            if (m === 'strong') t = '<strong>' + t + '</strong>';
+            else if (m === 'em') t = '<em>' + t + '</em>';
+            else if (defs[m] && defs[m]._type === 'link') t = '<a href="' + esc(defs[m].href) + '" target="_blank" rel="noopener">' + t + '</a>';
+          });
+          return t;
+        }).join('');
+        if (b.listItem) {
+          var lt = b.listItem === 'number' ? 'ol' : 'ul';
+          if (listType && listType !== lt) flush();
+          listType = lt; listBuf += '<li>' + inner + '</li>';
+        } else {
+          flush();
+          var style = b.style || 'normal';
+          if (style === 'h2') html += '<h2>' + inner + '</h2>';
+          else if (style === 'h3') html += '<h3>' + inner + '</h3>';
+          else if (style === 'blockquote') html += '<blockquote>' + inner + '</blockquote>';
+          else html += '<p>' + inner + '</p>';
+        }
+      });
+      flush();
+      return html;
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var slug = params.get('slug');
+    if (!slug) { status.innerHTML = 'Article not found. <a href="/insights/">Back to Insights</a>'; return; }
+    if (SANITY.projectId.indexOf('REPLACE_') === 0) { status.innerHTML = 'This article is not available yet. <a href="/insights/">Back to Insights</a>'; return; }
+
+    var query = '*[_type=="article" && slug.current==$slug][0]{title,author,date,body}';
+    var url = 'https://' + SANITY.projectId + '.apicdn.sanity.io/' + SANITY.apiVersion +
+              '/data/query/' + SANITY.dataset + '?query=' + encodeURIComponent(query) +
+              '&$slug=' + encodeURIComponent(JSON.stringify(slug));
+
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var a = data && data.result;
+        if (!a) { status.innerHTML = 'Article not found. <a href="/insights/">Back to Insights</a>'; return; }
+        document.title = a.title + ' | DS Attorneys';
+        el.innerHTML =
+          '<p class="eyebrow">Insights</p>' +
+          '<h1 style="font-size: clamp(1.9rem, 4.5vw, 3rem); margin-bottom: 16px;">' + esc(a.title) + '</h1>' +
+          '<p style="color: var(--gold); font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 40px;">' +
+            (a.author ? esc(a.author) + ' &nbsp;·&nbsp; ' : '') + fmtDate(a.date) + '</p>' +
+          '<div class="article-body">' + renderBody(a.body) + '</div>' +
+          '<p style="margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--hairline-paper);">' +
+            '<a href="/insights/" style="text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82rem;">← All insights</a></p>';
+      })
+      .catch(function () {
+        status.innerHTML = 'We could not load this article just now. <a href="/insights/">Back to Insights</a>';
+      });
+  })();
+</script>
