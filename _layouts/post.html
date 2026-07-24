@@ -1,0 +1,30 @@
+---
+layout: default
+---
+<article>
+  <p class="eyebrow">Insights</p>
+  <h1 style="font-size: clamp(1.9rem, 4.5vw, 3rem); margin-bottom: 16px;">{{ page.title }}</h1>
+  <p style="color: var(--gold); font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 40px;">
+    {% if page.author %}{{ page.author }} &nbsp;·&nbsp; {% endif %}{{ page.date | date: "%-d %B %Y" }}
+  </p>
+
+  <div class="article-body">
+    {{ content }}
+  </div>
+
+  <p style="margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--hairline-paper);">
+    <a href="/insights/" style="text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82rem;">← All insights</a>
+  </p>
+</article>
+
+<style>
+  .article-body { font-size: 1.12rem; line-height: 1.85; }
+  .article-body p { margin-bottom: 22px; }
+  .article-body h2 { font-size: 1.6rem; margin: 42px 0 14px; }
+  .article-body h3 { font-size: 1.28rem; margin: 34px 0 12px; }
+  .article-body ul, .article-body ol { margin: 0 0 22px 24px; }
+  .article-body li { margin-bottom: 8px; }
+  .article-body blockquote { border-left: 3px solid var(--gold); padding-left: 20px; margin: 26px 0; font-style: italic; color: var(--heading-paper-bg); }
+  .article-body a { color: var(--gold); }
+  .article-body img { max-width: 100%; height: auto; border-radius: 4px; margin: 20px 0; }
+</style>

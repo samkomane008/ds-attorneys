@@ -1,0 +1,35 @@
+---
+layout: default
+title: Insights
+summary: Commercial law insights and commentary from DS Attorneys, Pretoria.
+permalink: /insights/
+---
+<p class="eyebrow">Insights</p>
+<h1 style="font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 14px;">Commentary &amp; guidance</h1>
+<p style="max-width: 60ch; margin-bottom: 48px;">Practical notes on commercial and civil law, contracts, dispute resolution and technology law, written for business owners and decision-makers.</p>
+
+{% if site.posts.size > 0 %}
+<div class="post-list">
+  {% for post in site.posts %}
+  <a class="post-card" href="{{ post.url }}">
+    <span class="post-date">{{ post.date | date: "%-d %B %Y" }}</span>
+    <h2>{{ post.title }}</h2>
+    {% if post.summary %}<p>{{ post.summary }}</p>{% endif %}
+    <span class="post-more">Read →</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p style="color: var(--text-paper-bg);">New articles are on the way. Please check back soon.</p>
+{% endif %}
+
+<style>
+  .post-list { display: grid; gap: 4px; }
+  .post-card { display: block; text-decoration: none; color: inherit; padding: 28px 0; border-top: 1px solid var(--hairline-paper); transition: padding-left 0.2s; }
+  .post-card:first-child { border-top: 0; }
+  .post-card:hover { padding-left: 8px; }
+  .post-date { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+  .post-card h2 { font-size: 1.5rem; margin: 8px 0 10px; color: var(--heading-paper-bg); }
+  .post-card p { color: var(--text-paper-bg); margin-bottom: 12px; max-width: 62ch; }
+  .post-more { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+</style>

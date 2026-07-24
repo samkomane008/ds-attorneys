@@ -1,0 +1,23 @@
+title: DS Attorneys
+description: Commercial law insights from DS Attorneys, Pretoria.
+url: "https://attds.co.za"
+timezone: Africa/Johannesburg
+
+# Articles live in _posts and render at /insights/<slug>/
+permalink: /insights/:title/
+
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+
+# Keep source/config files out of the built site
+exclude:
+  - README.md
+  - "*.docx"
+  - Gemfile
+  - Gemfile.lock
+
+markdown: kramdown
