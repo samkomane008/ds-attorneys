@@ -19,5 +19,6 @@ exclude:
   - "*.docx"
   - Gemfile
   - Gemfile.lock
+  - wrangler.jsonc
 
 markdown: kramdown
