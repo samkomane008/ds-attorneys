@@ -1,0 +1,10 @@
+// Cloudflare Workers static site. GitHub Actions builds Jekyll into _site, then deploys it.
+{
+  "name": "ds-attorneys",
+  "compatibility_date": "2026-10-19",
+  "assets": {
+    "directory": "_site",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
