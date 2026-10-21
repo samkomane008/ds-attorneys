@@ -1,0 +1,38 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Build site
+        run: |
+          gem install jekyll -v "~> 4.3" --no-document
+          jekyll build --destination _site
+
+      - name: Keep the build for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+
+      # Skipped until the CLOUDFLARE_API_TOKEN secret is set on the repo
+      - name: Deploy
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        run: npx --yes wrangler@4 deploy
