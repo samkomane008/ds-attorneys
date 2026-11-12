@@ -82,8 +82,10 @@ jobs:
         run: npx --yes wrangler@4 deploy
 
       - name: Verify the public HTTPS endpoint responds
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           curl --retry 5 --retry-delay 3 --fail --silent --show-error --max-time 20 \
             -o /dev/null https://attds.co.za/
-          echo "::notice::DS Attorneys Cloudflare deployment accepted for ${{ github.event.workflow_run.head_sha }}."
+          echo "::notice::DS Attorneys Cloudflare deployment accepted for $SHA."
