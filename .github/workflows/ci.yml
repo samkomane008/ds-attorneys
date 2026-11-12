@@ -1,0 +1,88 @@
+# Validate Jekyll source before any client-facing Cloudflare release.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ds-attorneys-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: website-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - name: Install pinned-major Jekyll
+        run: gem install jekyll -v "~> 4.3" --no-document
+      - name: Build and verify the actual static site
+        run: |
+          set -euo pipefail
+          jekyll build --destination _site
+          test -s _site/index.html
+          test -s _site/insights.html || test -s _site/insights/index.html
+
+  deploy:
+    name: cloudflare-production
+    needs: build
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: ds-attorneys-production
+      url: https://attds.co.za
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate existing Cloudflare deployment configuration
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$CF_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN secret"; exit 1; }
+          test -n "$CF_ACCOUNT" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID variable"; exit 1; }
+      - name: Build the verified client site
+        run: |
+          set -euo pipefail
+          gem install jekyll -v "~> 4.3" --no-document
+          jekyll build --destination _site
+          test -s _site/index.html
+      - name: Verify commit is still the latest main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$SHA" || {
+            echo "::error::main advanced while preparing the deployment"; exit 1;
+          }
+      - name: Deploy static site to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy
+      - name: Verify public HTTPS response
+        run: |
+          curl --retry 5 --retry-delay 3 --fail --silent --show-error --max-time 20 -o /dev/null https://attds.co.za/
