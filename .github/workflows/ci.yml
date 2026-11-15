@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ds-attorneys-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: website-build
+    runs-on: ${{ fromJSON(vars.DS_CI_RUNNERS || '["ubuntu-latest"]') }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test exact-SHA release eligibility offline
+        run: |
+          bash -n scripts/release-eligible.sh
+          bash tests/test-release-eligible.sh
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - name: Build Jekyll static site
+        run: |
+          gem install jekyll -v "~> 4.3" --no-document
+          jekyll build --destination _site
+      - name: Preserve reviewed site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-attorneys-site
+          path: _site
+          if-no-files-found: error
+          retention-days: 7
+
+  security:
+    name: secret-scan
+    runs-on: ${{ fromJSON(vars.DS_CI_RUNNERS || '["ubuntu-latest"]') }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan complete Git history for credentials
+        run: |
+          docker run --pull=always --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.30.1 \
+            detect --source=/repo --redact --exit-code 1

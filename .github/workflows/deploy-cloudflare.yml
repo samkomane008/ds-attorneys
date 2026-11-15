@@ -1,40 +1,77 @@
 name: Deploy to Cloudflare
 
+# No deployment on a pull request, manual bypass or unverified main push.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
 
 permissions:
   contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: ds-attorneys-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    if: >-
+      ${{ vars.DS_DEPLOY_ENABLED == 'true'
+          && vars.DS_DEPLOY_RUNNERS != ''
+          && contains(fromJSON(vars.DS_DEPLOY_RUNNERS || '[]'), 'self-hosted')
+          && contains(fromJSON(vars.DS_DEPLOY_RUNNERS || '[]'), 'ds-deploy')
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ${{ fromJSON(vars.DS_DEPLOY_RUNNERS || '["self-hosted","Linux","X64","ds-deploy"]') }}
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Require merged exact-main CI, Jekyll build and Gitleaks gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          bash scripts/release-eligible.sh \
+            --repo "$GITHUB_REPOSITORY" --sha "$SHA" \
+            --workflow ci.yml --job website-build --job secret-scan
 
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
 
-      - name: Build site
+      - name: Build verified Jekyll site
         run: |
+          set -euo pipefail
           gem install jekyll -v "~> 4.3" --no-document
           jekyll build --destination _site
 
-      - name: Keep the build for download
-        uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: _site
+      - name: Recheck exact current main immediately before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$SHA" ]] ||
+            { echo "::error::Main advanced; refusing stale release"; exit 1; }
 
-      # Skipped until the CLOUDFLARE_API_TOKEN secret is set on the repo
-      - name: Deploy
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' }}
-        run: npx --yes wrangler@4 deploy
+      - name: Deploy vetted site to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]] ||
+            { echo "::error::Missing Cloudflare deployment credentials"; exit 1; }
+          npx --yes wrangler@4 deploy
